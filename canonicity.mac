@@ -1,0 +1,117 @@
+matrixEq(M,N) :=
+  block([mr:length(M),mc:length(M[1]),
+         nr:length(N),nc:length(N[1]),
+         eqs:[],i,j],
+        if mr = nr and mc = nc
+        then for i:1 thru mr step 1 do
+                 for j:1 thru mc step 1 do
+                     eqs:cons(M[i][j]=N[i][j],eqs)
+        else [],
+        eqs)$
+P : matrix([0,P01,P02],
+           [P10,0,P12],
+           [P20,P21,0])$
+C : matrix([C0,0,0],[0,C1,0],[0,0,C2])$
+D : matrix([D0,0,0],[0,D1,0],[0,0,D2])$
+goal : matrix([0,f,1],[1,0,f],[f,1,0])$
+pcdsols : solve(matrixEq(C.P.D,goal),[f,C0,C1,C2,D0,D1,D2])[3]$
+print(pcdsols[1]);
+symmsols : subst(P21^(1/3)*P12^(1/3)*P20^(-1/3)*P10^(-1/3),%r3,
+                 pcdsols)$
+symmsols[5];symmsols[6];symmsols[7];
+mapToStdTrigon(V,v) :=
+  block([vV, L0, L1, L2, D, m],
+    vV : v.V,
+    L0 : (vV[2][3] * vV[3][2])^(1/3)/(vV[2][1] * vV[3][1])^(1/3),
+    L1 : (vV[3][1] * vV[1][3])^(1/3)/(vV[3][2] * vV[1][2])^(1/3),
+    L2 : (vV[1][2] * vV[2][1])^(1/3)/(vV[1][3] * vV[2][3])^(1/3),
+    D : matrix([L0,0,0],
+               [0,L1,0],
+               [0,0,L2]),
+    m : invert(V.D),
+    determinant(m)^(-1/3)*m)$
+projFromTo(V,v,W,w) := invert(mapToStdTrigon(W,w)) . 
+                       mapToStdTrigon(V,v)$
+V0 : matrix([1],[0],[0])$
+v0 : matrix([0,t012,1])$
+V1 : matrix([0],[1],[0])$
+v1 : matrix([1,0,t012])$
+V2 : matrix([0],[0],[1])$
+v2 : matrix([t012,1,0])$
+R3(v,V) :=
+  block([vV:v.V],
+    vV[1][2]*vV[2][3]*vV[3][1]/
+   (vV[1][3]*vV[2][1]*vV[3][2]))$
+trilateral(p,q,r) := addrow(addrow(p,q),r)$
+triangle(P,Q,R) := addcol(addcol(P,Q),R)$
+
+tr(P,p,Q,q,R,r) := R3(trilateral(p,q,r),triangle(P,Q,R))$
+
+maprhs(listofeqs) := create_list(rhs(eq),eq,listofeqs)$
+
+U2repEqs : block([UU,UUV0,UUV1,V2V0,V2V1,e01eq,e10eq,fullsol,Usol],
+  UU : matrix([UU0],[UU1],[UU2]),
+  UUV0 : matrix([UUV00,UUV01,UUV02]),
+  UUV1 : matrix([UUV10,UUV11,UUV12]),
+  V2V0 : matrix([0,1,0]),
+  V2V1 : matrix([1,0,0]),
+  e01eq : e01^3 = tr(V0,v0,UU,UUV1,V2,V2V1),
+  e10eq : e10^3 = tr(V1,v1,V2,V2V0,UU,UUV0),
+  subst((e10^3+1)*t012^2,%r8,solve([e01eq,e10eq,UUV0.UU=0,UUV0.V0=0,
+                                      UUV1.UU=0,UUV1.V1=0],
+                         [UU0,UU1,UU2,
+                          UUV00,UUV01,UUV02,
+                          UUV10,UUV11,UUV12])[2]));
+
+U2rep : matrix([(e10^3 + 1)*t012^2],
+               [(e01^3 + 1)*e10^3],
+               [-e10^3*t012]);
+sigma3 : matrix([0,0,1],
+               [1,0,0],
+               [0,1,0]);
+U0rep : sigma3.sublis([e10=e21,e01=e12],U2rep);
+U1rep : sigma3.sublis([e21=e02,e12=e20],U0rep);
+
+Y : triangle(U2rep,V1,V0)$
+C : triangle(V1,U0rep,V2)$
+M : triangle(V0,V2,U1rep)$
+
+uu : matrix([uu0,uu1,uu2])$
+yy : trilateral(uu,v1,v0)$
+factor(subst(t012^2*t210^3,%r35,
+             solve([R3(yy,Y)=t210^3,uu.U2rep=0],
+                   [uu0,uu1,uu2]))[1]);
+
+u2rep : matrix([e01^3*e10^3, t012^2*t210^3, 
+                t012*(e01^3*t210^3 + t210^3 + e01^3*e10^3 + e01^3)]);
+u0rep : sublis([e01=e12,e10=e21],u2rep).invert(sigma3);
+u1rep : sublis([e12=e20,e21=e02],u0rep).invert(sigma3);
+
+y : trilateral(u2rep,v1,v0)$
+c : trilateral(v1,u0rep,v2)$
+m : trilateral(v0,v2,u1rep)$
+
+r : factor(projFromTo(M,m,Y,y))$
+g : factor(projFromTo(Y,y,C,c))$
+b : factor(projFromTo(C,c,M,m))$
+
+perph : r.g.b$
+factor(charpoly(perph,lambda));
+
+parhol : [t210 = 1/t012, e02 = 1/(e01*e10*e12*e21*e20)]$
+
+S0 : matrix([e20*e02*e21],[0],[0])$
+S1 : matrix([0],[e01*e10*e02],[0])$
+S2 : matrix([0],[0],[e12*e21*e10])$
+omega : matrix([e01*e10*e12, e12*e21*e20, e20*e02*e01])$
+
+YB : omega.r.S0$
+YB : factor(YB);
+CB : omega.g.S1$
+CB : factor(CB);
+MB : omega.b.S2$
+MB : factor(MB);
+
+factor(solve(sublis(parhol,CB)=1, [e20]));
+
+factor(solve(sublis(parhol,YB)=1,[e20]));
